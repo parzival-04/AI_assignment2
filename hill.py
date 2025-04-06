@@ -67,8 +67,11 @@ def randomized_climb(points, restart_limit=5, iteration_limit=1000, base_seed=10
     best_path = None
     best_cost = float('inf')
     image_paths = []
+    best_costs_per_run = []
+    time_taken_per_run = []
 
     for attempt in range(restart_limit):
+        start = time.time()
         rng = np.random.default_rng(base_seed + attempt)
         path = list(rng.permutation(len(points)))
         cost = route_cost(path, dist_table)
@@ -83,11 +86,15 @@ def randomized_climb(points, restart_limit=5, iteration_limit=1000, base_seed=10
             else:
                 break
 
+        time_taken = time.time() - start
+        best_costs_per_run.append(cost)
+        time_taken_per_run.append(time_taken)
+
         if cost < best_cost:
             best_cost = cost
             best_path = path
 
-    return best_path, best_cost, image_paths
+    return best_path, best_cost, image_paths, best_costs_per_run, time_taken_per_run
 
 # ---------- Main Execution ----------
 
@@ -106,12 +113,12 @@ if __name__ == "__main__":
 
     # Run Randomized Hill Climbing
     start_time = time.time()
-    path, cost, image_files = randomized_climb(city_locations)
+    path, cost, image_files, best_costs, times = randomized_climb(city_locations)
     end_time = time.time()
 
     print("Final Tour Order:", [int(i) for i in path])
     print("Minimum Distance Achieved:", round(cost, 2))
-    print("Execution Duration:", round(end_time - start_time, 4), "seconds")
+    print("Total Execution Duration:", round(end_time - start_time, 4), "seconds")
 
     # Save GIF Animation
     frames = [imageio.imread(f) for f in image_files]
@@ -122,3 +129,30 @@ if __name__ == "__main__":
         os.remove(f)
 
     print(f"Animation saved with {len(image_files)} steps.")
+
+    # Plot Combined Stats: Distance and Time
+    x = np.arange(len(best_costs))
+    width = 0.35
+
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+    bars1 = ax1.bar(x - width/2, best_costs, width, label='Best Distance', color='steelblue')
+    ax1.set_ylabel('Distance')
+    ax1.set_xlabel('Run #')
+    ax1.set_title('Hill Climb Stats per Run')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([f'Run {i+1}' for i in x])
+    ax1.tick_params(axis='y')
+
+    ax2 = ax1.twinx()
+    bars2 = ax2.bar(x + width/2, times, width, label='Time Taken (s)', color='darkorange')
+    ax2.set_ylabel('Time (s)')
+    ax2.tick_params(axis='y')
+
+    # Combine Legends
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    fig.legend(handles1 + handles2, labels1 + labels2, loc='upper right')
+
+    fig.tight_layout()
+    plt.savefig("hill_climb_stats.png")
+    plt.show()
